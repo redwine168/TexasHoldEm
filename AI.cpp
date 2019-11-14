@@ -12,10 +12,23 @@
 using namespace std;
 
 
+// AI Class for playing Texas Hold 'em
+// Objects of the AI class have the following attributes:
+//  userRange: a 2D array of ints, referring to indices of the deck of Card objects in the GameManager class.
+//      This is how the AI tracks the hands that the user could possibly have throughout a hand
+//  handStrengths: an array of floats of strengths of hands corresponding to the hands in userRange
+// The idea of the AI is that it bases its decisions on how strong its own hand is compared to the hands
+//  that the AI thinks the user could have.  For example, at the beginning of the hand, the AI compares its hand
+//  to all 1326 2 card combinations that the user could have.  If the user bets, the AI might consider that the user
+//  wouldn't have the lower third (by hand strength) of the 2 card combinations.  Thus, in future considerations, the
+//  AI would only compare its own hand to about ~900 2 card combinations.  Based on how confident the AI is in its own hand
+//  compared to the user's possible hands, as well as the size of the current bet and the pot size, the AI will make
+//  decisions on whether to check, bet, call, raise, and fold.
 class AI {
 public:
     int userRange[1326][2]; // there are 1326 possible 2 card hands
     float handStrengths[1326];
+    // Default (and only) constructor for AI objects
     AI() {
         resetUserRange();
     }
@@ -30,6 +43,8 @@ public:
 
 
 // AI method for making a bet decision.  The parameters are essentially everything relevant on the poker table.
+//  the current bet, the last bet the AI made, the pot size, the AI's stack, the user's stack, the AI's cards,
+//  the cards on the board, and what round of betting we're on
 // Returns -1 if the AI decides to fold, 0 if the AI decides to check, and otherwise an integer that represents
 // the amount that the AI decides to bet (whether that is a call or a raise is shown with cout, and is handled in GameManager)
 int AI::makeBetDecision(int currBet, int AILastBet, int potSize, int AIStack, int userStack, Card* AIHand, Card* boardCards, int betRound, Card* deck) {
@@ -37,7 +52,7 @@ int AI::makeBetDecision(int currBet, int AILastBet, int potSize, int AIStack, in
     usleep(3000000);
     float confidenceRatio = determineHandStrength(currBet, potSize, AIStack, userStack, AIHand, boardCards, betRound, deck);
     if ((currBet-AILastBet) == 0) { // if AI is first bet or user has checked
-        if (confidenceRatio > 0.50) {
+        if (confidenceRatio > 0.50) { // arbitrary threshold for if the AI wishes to bet
             int bet = determineBetSize(currBet, AILastBet, potSize, AIStack, userStack, confidenceRatio);
             cout << "Daniel bets $" << bet << "." << endl;
             return bet;
@@ -46,11 +61,11 @@ int AI::makeBetDecision(int currBet, int AILastBet, int potSize, int AIStack, in
             return 0;
         }
     } else { // if user bets into AI
-        if (confidenceRatio > 0.75) {
+        if (confidenceRatio > 0.75) { // arbitrary threshold for if the AI wishes to raise
             int bet = determineBetSize(currBet, AILastBet, potSize, AIStack, userStack, confidenceRatio);
             cout << "Daniel raises to $" << currBet+bet << "." << endl;
             return currBet+bet-AILastBet;
-        } else if (confidenceRatio > 0.4) {
+        } else if (confidenceRatio > 0.4) { // arbitrary threshold for if the AI wishes to call
             cout << "Daniel calls, putting in $" << currBet-AILastBet << "." << endl;
             return currBet-AILastBet;
         } else {
@@ -62,11 +77,9 @@ int AI::makeBetDecision(int currBet, int AILastBet, int potSize, int AIStack, in
 }
 
 
-// AI function for determining hand strength, and a confidence level that the AI has a better hand than the user
-
-
-// AI function for deciding if the AI wants to raise
-// Returns -1 if the AI does not wish to raise, or returns an integer indicating the amount the AI wants to raise
+// AI function for determining how strong it thinks its hand is.  It calculates the strength of its own hand, and then the strengths
+// of all the hands it thinks the user could have.  It determines the percent of user hands that its own hand beats, and returns that
+// ratio
 float AI::determineHandStrength(int currBet, int potSize, int AIStack, int userStack, Card* AIHand, Card* boardCards, int betRound, Card* deck) {
     Card* playableCards = new Card[7];
     for (int i = 0; i < 2; i++) {
@@ -97,7 +110,26 @@ float AI::determineHandStrength(int currBet, int potSize, int AIStack, int userS
 }
 
 
+// Function for determining the AI's bet size (when the AI wants to raise).  This decision is based on how confident the AI
+// is in its hand, the current bet, the pot size, etc.
+// Returns an int referring to the amount the AI wishes to bet
+int AI::determineBetSize(int currBet, int AILastBet, int potSize, int AIStack, int userStack, float confidenceRatio) {
+    int bet = (int)(confidenceRatio * potSize);
+    if (bet < 2) {
+        bet = 2;
+    } else if (bet < 2*currBet) {
+        bet = 2*currBet;
+    }
+    return bet;
+}
 
+
+
+// Determines how likely it is for the input cards to achieve a flush
+// The parameter "cards" contains the two hole cards (whether that be the AI's cards or the two cards of a user's possible hand),
+// and the current board cards.  Based on the parameter betRound (referring to if it's pre-flop, on the turn, etc), the flush
+// likelihood is determined differently.
+// Returns an arbitrary float based on how close to a flush these cards are
 float AI::determineFlushOdds(Card* cards, int betRound) {
     if (betRound == 0) { // pre-flop
         if (cards[0].suit == cards[1].suit) {
@@ -170,6 +202,11 @@ float AI::determineFlushOdds(Card* cards, int betRound) {
 }
 
 
+// Determines how likely it is for the input cards to achieve a straight
+// The parameter "cards" contains the two hole cards (whether that be the AI's cards or the two cards of a user's possible hand),
+// and the current board cards.  Based on the parameter betRound (referring to if it's pre-flop, on the turn, etc), the straight
+// likelihood is determined differently.
+// Returns an arbitrary float based on how close to a straight these cards are
 float AI::determineStraightOdds(Card* cards, int betRound) {
     if (betRound == 0) { // pre-flop
         if (abs(cards[0].value - cards[1].value) == 0) { // if the two cards have same value
@@ -198,16 +235,111 @@ float AI::determineStraightOdds(Card* cards, int betRound) {
             return 0.0;
         }
     } else if (betRound == 1) { // flop
-        return (float)(rand()%101)/100;
+        float bestVal = 0.0;
+        for (int i = 0; i < 5; i++) { // test each card as top card of straight
+            for (int j = 0; j < 5; j++) { // see if first card below exists
+                if (cards[j].value == cards[i].value - 1) {
+                    if (bestVal < 0.2) {
+                        bestVal = 0.2;
+                    }
+                    for (int k = 0; k < 5; k++) { // see if second card below exists
+                        if (cards[k].value == cards[i].value - 2) {
+                            if (bestVal < 0.4) {
+                                bestVal = 0.4;
+                            }
+                            for (int l = 0; l < 5; l++) { // see if third cards below exists
+                                if (cards[l].value == cards[i].value - 3) {
+                                    if (bestVal < 0.6) {
+                                        bestVal = 0.6;
+                                    }
+                                    for (int m = 0; m < 5; m++) { // see if straight is already made
+                                        if (bestVal < 1.0) {
+                                            bestVal = 1.0;
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            
+        }
+        return bestVal;
     } else if (betRound == 2) { // turn
-        return (float)(rand()%101)/100;
+        float bestVal = 0.0;
+        for (int i = 0; i < 6; i++) { // test each card as top card of straight
+            for (int j = 0; j < 6; j++) { // see if first card below exists
+                if (cards[j].value == cards[i].value - 1) {
+                    if (bestVal < 0.2) {
+                        bestVal = 0.2;
+                    }
+                    for (int k = 0; k < 6; k++) { // see if second card below exists
+                        if (cards[k].value == cards[i].value - 2) {
+                            if (bestVal < 0.4) {
+                                bestVal = 0.4;
+                            }
+                            for (int l = 0; l < 6; l++) { // see if third cards below exists
+                                if (cards[l].value == cards[i].value - 3) {
+                                    if (bestVal < 0.6) {
+                                        bestVal = 0.6;
+                                    }
+                                    for (int m = 0; m < 6; m++) { // see if straight is already made
+                                        if (bestVal < 1.0) {
+                                            bestVal = 1.0;
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            
+        }
+        return bestVal;
     } else { // river
-        return (float)(rand()%101)/100;
+        float bestVal = 0.0;
+        for (int i = 0; i < 7; i++) { // test each card as top card of straight
+            for (int j = 0; j < 7; j++) { // see if first card below exists
+                if (cards[j].value == cards[i].value - 1) {
+                    if (bestVal < 0.2) {
+                        bestVal = 0.2;
+                    }
+                    for (int k = 0; k < 7; k++) { // see if second card below exists
+                        if (cards[k].value == cards[i].value - 2) {
+                            if (bestVal < 0.4) {
+                                bestVal = 0.4;
+                            }
+                            for (int l = 0; l < 7; l++) { // see if third cards below exists
+                                if (cards[l].value == cards[i].value - 3) {
+                                    if (bestVal < 0.6) {
+                                        bestVal = 0.6;
+                                    }
+                                    for (int m = 0; m < 7; m++) { // see if straight is already made
+                                        if (bestVal < 1.0) {
+                                            bestVal = 1.0;
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            
+        }
+        return bestVal;
     }
     return 0.0;
 }
 
 
+// Determines how likely it is for the input cards to achieve a good pair (the higher the pair the better)
+// The parameter "cards" contains the two hole cards (whether that be the AI's cards or the two cards of a user's possible hand),
+// and the current board cards.  Based on the parameter betRound (referring to if it's pre-flop, on the turn, etc), the high pair
+// likelihood is determined differently.
+// Returns an arbitrary float based on how close to a high pair these cards are
 float AI::determineGoodPairOdds(Card* cards, int betRound) {
     if (betRound == 0) { // pre-flop
         if (cards[0].value == cards[1].value) { // if the AI has a pocket pair
@@ -226,9 +358,9 @@ float AI::determineGoodPairOdds(Card* cards, int betRound) {
             return cardSum;
         }
     } else if (betRound == 1) { // flop
-        return (float)(rand()%101)/100;
+        return (float)(rand()%101)/100; // THESE ARE CURRENTLY RANDOM AS I HAVE NOT PROGRAMMED THE AI IN YET
     } else if (betRound == 2) { // turn
-        return (float)(rand()%101)/100;
+        return (float)(rand()%101)/100; // I MAKE THEM RANDOM SO THE GAME IS PLAYABLE, BUT THESE WILL CHANGE
     } else { // river
         return (float)(rand()%101)/100;
     }
@@ -238,20 +370,8 @@ float AI::determineGoodPairOdds(Card* cards, int betRound) {
 
 
 
-
-int AI::determineBetSize(int currBet, int AILastBet, int potSize, int AIStack, int userStack, float confidenceRatio) {
-    int bet = (int)(confidenceRatio * potSize);
-    if (bet < 2) {
-        bet = 2;
-    } else if (bet < 2*currBet) {
-        bet = 2*currBet;
-    }
-    return bet;
-}
-
-
-
-
+// Function for resetting the user's range
+// This will happen at the beginning of the hand, restoring the user's possible hands to all 1326 possiblities
 void AI::resetUserRange() {
     int x = 0;
     for (int i = 0; i < 52; i++) {

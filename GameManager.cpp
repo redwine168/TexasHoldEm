@@ -11,6 +11,15 @@
 using namespace std;
 
 
+
+// GameManager Class
+// This class handles facilitating the game of Texas Hold 'em.
+// For example, this class holds the deck of Card objects
+// and deals cards at the appropriate time in the game.
+// The class also facilitates betting rounds between the user and the AI,
+// and keeps track of bet sizes, user/AI stack sizes, pot size, etc.
+// The class also determines the winner of hands, analyzing the cards in user's and AI's hands
+// as well as the board cards to determine who has the best hand.
 class GameManager {
 public:
     Card* deck = new Card[53]; // 53rd card is a "dead" card
@@ -52,6 +61,8 @@ public:
 };
 
 
+// Randomly draw a card (that hasn't already been drawn) from the deck of Card objects
+// Returns the drawn card
 Card GameManager::drawCard() {
     int keepTrying = 1;
     Card newCard;
@@ -74,14 +85,15 @@ Card GameManager::drawCard() {
 }
 
 
+// Shuffles the deck, resetting a hand
 void GameManager::shuffleDeck() { // essentially just clears the already drawn cards array, filling it with "dead" cards
     for (int i = 0; i < 9; i++) {
-        drawnCards[i] = deck[52];
+        drawnCards[i] = deck[52]; // deck[52] is a placeholder "dead" card
     }
 }
 
-
-void GameManager::finishHand(int handWinner, int hand) { // finish the hand, putting appropriate chips in winner's stacks
+// Finish the hand, putting appropriate chips in winner's stacks
+void GameManager::finishHand(int handWinner, int hand) {
     if (handWinner == 1) { // if user won the hand
         userStack += potSize; // award user pot
         cout << "You win the pot of $" << potSize << "." << endl;
@@ -109,7 +121,9 @@ void GameManager::finishHand(int handWinner, int hand) { // finish the hand, put
 
 // Function for hosting a betting round
 // Parameters are the AI, which bettor is first to bet, and the betRound that is happening
-// 0 is pre-flop, 1 is flop, 2 is turn, and 3 is river
+// bettor: 0 means user bets first, 1 means AI bets first
+// betRound: 0 is pre-flop, 1 is flop, 2 is turn, and 3 is river
+// Returns an int: 1 means no fold happened, and the hand should proceed. -1 means a fold happened, hand ends.
 int GameManager::bettingRound(AI ai, int bettor, int betRound) {
     int currBet = 0, keepGoing = 1, userLastBet = 0, AILastBet = 0, userHadAction = 0, AIHadAction = 0;
     if (betRound == 0) { // if pre-flop, set big/little blinds as current bets
@@ -168,6 +182,14 @@ int GameManager::bettingRound(AI ai, int bettor, int betRound) {
 }
 
 
+// Function for retrieving the user's bet
+// Parameters are:
+// currBet - the total amount bet at this round of the game
+// userLastBet - the amount the user has already put in this round
+// Thus, the user would owe (currBet - userLastBet) if they wish to call
+// Returns an int:
+// -1 - user folded
+// Any other int - the amount the user is putting in the bet (whether it's a call or a raise)
 int GameManager::userBet(int currBet, int userLastBet) {
     int bet = 0;
     int amountOwed = currBet - userLastBet;
@@ -248,7 +270,8 @@ int GameManager::userBet(int currBet, int userLastBet) {
 }
 
 
-
+// Function for displaying the state of the table to the console
+// Shows current board cards, user and AI stacks, user's cards, etc.
 void GameManager::displayTable() {
     /*
     cout << endl << "Daniel's hand: ";  // DELETE WHEN AI HAND SHOULD BE HIDDEN
@@ -396,6 +419,11 @@ void GameManager::displayTable() {
 // 2 - Two pair
 // 1 - Pair
 // 0 - High card
+
+// Function for finding the best hand given seven cards (two hole cards and five board cards)
+// Sequentially looks for hands in descending order of strength (straight flush, then four of a kind, etc)
+// Returns an int referring to the best hand that exists in the seven input cards
+// according to the above values
 int GameManager::findBestHand(Card* cards) {
     int hand = -1;
     if ((hand = findStraightFlush(cards)) == 1){
@@ -481,6 +509,7 @@ int GameManager::findStraightFlush(Card* cards) {
     return -1;
 }
 
+
 // Function for finding if a four of a kind exists in a set of seven cards.
 // Returns 1 if one exists, returns -1 if not
 int GameManager::findFourOfAKind(Card* cards) {
@@ -525,6 +554,7 @@ int GameManager::findFourOfAKind(Card* cards) {
     }
     return -1;
 }
+
 
 // Function for finding if a full house exists in a set of seven cards.
 // Returns 1 if one exists, returns -1 if not
@@ -700,6 +730,7 @@ int GameManager::findFlush(Card* cards) {
     return -1;
 }
 
+
 // Function for finding if a straight exists in a set of seven cards.
 // Returns 1 if one exists, returns -1 if not
 int GameManager::findStraight(Card* cards) {
@@ -769,6 +800,7 @@ int GameManager::findStraight(Card* cards) {
     }
     return -1;
 }
+
 
 // Function for finding if a three of a kind exists in a set of seven cards.
 // Returns 1 if one exists, returns -1 if not
@@ -939,7 +971,12 @@ int GameManager::findPair(Card* cards) {
 
 // ------  TIE RESOLVERS ------
 
-
+// If it's determined that the user and the AI have the same strength of hand (e.g., both have two pair)
+// then the tie must be resolved.
+// The way that the tie is resolved is dependent on the hand that the two players have
+// For example, if both have two pair, first check whose high pair is higher,
+// if same then check whose low pair is higher, if same then check whose fifth card is higher
+// This function returns 1 if the user wins, 2 if the AI wins, and -1 if it's actually still a tie
 int GameManager::resolveTie(int handStrength, Card* userCards, Card* AICards) {
     if (handStrength == 8) {
         return resolveTieStraightFlush(userCards, AICards);
@@ -1698,7 +1735,9 @@ int GameManager::resolveTieHighCard(Card* userCards, Card* AICards) {
 }
 
 
-
+// Function for initializing the deck
+// Creates a deck of 53 Card objects, consisting of the 52 cards in a real card deck,
+// and then a 53rd "dead" card that is used for some of the GameManager logic
 void GameManager::initDeck() {
     potSize = 0;
     userStack = 200;

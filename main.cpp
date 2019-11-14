@@ -11,6 +11,7 @@
 using namespace std;
 
 
+// Main function for the Texas Hold 'em app
 int main(int argc, const char * argv[]) {
     srand((unsigned int)time(0)); // set seed for psuedo RNG, based on current time
     GameManager game;
@@ -61,7 +62,7 @@ int main(int argc, const char * argv[]) {
     game.resolveTie(testUserStrength, userTestHand, AITestHand);
     */
     
-    
+    // Keep playing hands until the user decides they wish to quit (or an invalid input is entered)
     while (keepPlaying == 1) {
         hand += 1;
         game.shuffleDeck();
@@ -184,11 +185,13 @@ int main(int argc, const char * argv[]) {
                 }
             }
         }
+        // Ask if user wishes to play another hand
         cout << endl << "Would you like to play another hand?" << endl << "1 - Keep playing" << endl << "0 - Quit" << endl;
         cin >> keepPlaying;
         if (!cin.eof()  && cin.good()) {
         }
     }
+    // If game over, app exits
     cout << "Thank you for playing.  You finished with $" << game.userStack << "." << endl;
 }
 
