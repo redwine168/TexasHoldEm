@@ -13,9 +13,8 @@ using namespace std;
 
 // Main function for the Texas Hold 'em app
 int main(int argc, const char * argv[]) {
-    srand((unsigned int)time(0)); // set seed for psuedo RNG, based on current time
+    srand((unsigned int)time(0)); // set seed for pseudo RNG, based on current time
     GameManager game;
-    AI ai;
     cout << "Welcome to Texas Hold 'em!" << endl;
     cout << "You will be playing against an AI named Daniel Negreanu." << endl;
     cout << "The game's small and big blinds are $1 and $2.  Both you and Daniel begin with $200." << endl;
@@ -93,9 +92,15 @@ int main(int argc, const char * argv[]) {
         usleep(500000);
         cout << "." << endl;
         usleep(500000);
+        cout << endl << "---------------------------------------------" << endl;
         game.displayTable();
         // PRE-FLOP
-        if (game.bettingRound(ai, hand%2, 0) != -1) { // if no fold happened pre-flop, proceed
+        int preFlopSuccess = 1;
+        // if neither player is already all in, have a betting round
+        if ((game.userStack > 0) && (game.AIStack > 0)) {
+            preFlopSuccess = game.bettingRound(hand%2, 0);
+        }
+        if (preFlopSuccess != -1) { // if no fold happened pre-flop, proceed
             cout << "Dealing the flop" << endl;
             usleep(500000);
             cout << "." << endl;
@@ -107,9 +112,15 @@ int main(int argc, const char * argv[]) {
             game.drawCard();
             game.drawCard();
             game.drawCard();
+            cout << endl << "---------------------------------------------" << endl;
             game.displayTable();
             // FLOP
-            if (game.bettingRound(ai, hand%2, 1) != -1) { // if no fold happened at the flop, proceed
+            int flopSuccess = 1;
+            // if neither player is already all in, have a betting round
+            if ((game.userStack > 0) && (game.AIStack > 0)) {
+                flopSuccess = game.bettingRound(hand%2, 1);
+            }
+            if (flopSuccess != -1) { // if no fold happened at the flop, proceed
                 cout << "Dealing the turn" << endl;
                 usleep(500000);
                 cout << "." << endl;
@@ -119,9 +130,15 @@ int main(int argc, const char * argv[]) {
                 cout << "." << endl;
                 usleep(500000);
                 game.drawCard();
+                cout << endl << "---------------------------------------------" << endl;
                 game.displayTable();
                 // TURN
-                if (game.bettingRound(ai, hand%2, 1) != -1) { // if no fold happened at the turn, proceed
+                int turnSuccess = 1;
+                // if neither player is already all in, have a betting round
+                if ((game.userStack > 0) && (game.AIStack > 0)) {
+                    turnSuccess = game.bettingRound(hand%2, 2);
+                }
+                if (turnSuccess != -1) { // if no fold happened at the turn, proceed
                     cout << "Dealing the river" << endl;
                     usleep(500000);
                     cout << "." << endl;
@@ -131,9 +148,24 @@ int main(int argc, const char * argv[]) {
                     cout << "." << endl;
                     usleep(500000);
                     game.drawCard();
+                    cout << endl << "---------------------------------------------" << endl;
                     game.displayTable();
                     // RIVER
-                    if (game.bettingRound(ai, hand%2, 1) != -1) { // if no fold happened at the river, showdown
+                    int riverSuccess = 1;
+                    // if neither player is already all in, have a betting round
+                    if ((game.userStack > 0) && (game.AIStack > 0)) {
+                        riverSuccess = game.bettingRound(hand%2, 3);
+                    }
+                    if (riverSuccess != -1) { // if no fold happened at the river, showdown
+                        cout << endl << "---------------------------------------------" << endl;
+                        cout << "Showdown!" << endl;
+                        usleep(500000);
+                        cout << "." << endl;
+                        usleep(500000);
+                        cout << "." << endl;
+                        usleep(500000);
+                        cout << "." << endl;
+                        usleep(500000);
                         cout << endl << "Daniel's hand: ";
                         for (int i = 0; i < 2; i++) {
                             if (game.AIHand[i].value == 10) {
@@ -186,9 +218,15 @@ int main(int argc, const char * argv[]) {
             }
         }
         // Ask if user wishes to play another hand
-        cout << endl << "Would you like to play another hand?" << endl << "1 - Keep playing" << endl << "0 - Quit" << endl;
-        cin >> keepPlaying;
-        if (!cin.eof()  && cin.good()) {
+        if (game.userStack == 0) {
+            cout << "You are out of money!  Game over." << endl;
+            keepPlaying = 0;
+        } else if (game.AIStack == 0) {
+            cout << "Daniel is out of money!  You beat the AI!" << endl;
+            keepPlaying = 0;
+        } else {
+            cout << endl << "Would you like to play another hand?" << endl << "1 - Keep playing" << endl << "0 - Quit" << endl;
+            cin >> keepPlaying;
         }
     }
     // If game over, app exits

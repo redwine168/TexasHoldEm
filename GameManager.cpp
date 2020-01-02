@@ -6,7 +6,6 @@
 //  Copyright © 2019 JonathanRedwine. All rights reserved.
 //
 
-#include <random>
 #include "AI.cpp"
 using namespace std;
 
@@ -22,6 +21,7 @@ using namespace std;
 // as well as the board cards to determine who has the best hand.
 class GameManager {
 public:
+    AI ai;
     Card* deck = new Card[53]; // 53rd card is a "dead" card
     Card* drawnCards = new Card[9]; // 9 cards will be drawn per hand - 2 per player, 5 board cards
     int potSize;
@@ -37,7 +37,7 @@ public:
     void shuffleDeck();
     void finishHand(int handWinner, int hand);
     void displayTable();
-    int bettingRound(AI ai, int firstBettor, int bettingRound);
+    int bettingRound(int firstBettor, int bettingRound);
     int userBet(int currBet, int userLastBet);
     int findBestHand(Card* cards);
     int findStraightFlush(Card* cards);
@@ -94,6 +94,7 @@ void GameManager::shuffleDeck() { // essentially just clears the already drawn c
 
 // Finish the hand, putting appropriate chips in winner's stacks
 void GameManager::finishHand(int handWinner, int hand) {
+    ai.resetUserRange();
     if (handWinner == 1) { // if user won the hand
         userStack += potSize; // award user pot
         cout << "You win the pot of $" << potSize << "." << endl;
@@ -124,7 +125,7 @@ void GameManager::finishHand(int handWinner, int hand) {
 // bettor: 0 means user bets first, 1 means AI bets first
 // betRound: 0 is pre-flop, 1 is flop, 2 is turn, and 3 is river
 // Returns an int: 1 means no fold happened, and the hand should proceed. -1 means a fold happened, hand ends.
-int GameManager::bettingRound(AI ai, int bettor, int betRound) {
+int GameManager::bettingRound(int bettor, int betRound) {
     int currBet = 0, keepGoing = 1, userLastBet = 0, AILastBet = 0, userHadAction = 0, AIHadAction = 0;
     if (betRound == 0) { // if pre-flop, set big/little blinds as current bets
         if ((bettor%2) == 0) { // AI is dealer
@@ -144,6 +145,19 @@ int GameManager::bettingRound(AI ai, int bettor, int betRound) {
                 potSize += thisBet;
                 userLastBet = userLastBet + thisBet;
                 currBet = userLastBet;
+                // if user went all in
+                if (userStack == 0) {
+                    // and AI had bet more than user went all in for
+                    if (AILastBet > userLastBet) {
+                        // give AI back the difference
+                        AIStack += AILastBet - userLastBet;
+                        // and take that much out of the pot
+                        potSize -= AILastBet - userLastBet;
+                        cout << "Returning $" << AILastBet - userLastBet << " to Daniel." << endl;
+                        // set last bets equal
+                        AILastBet = userLastBet;
+                    }
+                }
             } else { // if the user chose to fold
                 userLastBet = -1;
             }
@@ -160,6 +174,19 @@ int GameManager::bettingRound(AI ai, int bettor, int betRound) {
                 potSize += thisAIBet;
                 AILastBet += thisAIBet;
                 currBet = AILastBet;
+                // if AI went all in
+                if (AIStack == 0) {
+                    // and user had bet more than AI went all in for
+                    if (userLastBet > AILastBet) {
+                        // give user back the difference
+                        userStack += userLastBet - AILastBet;
+                        // and take that much out of the pot
+                        potSize -= userLastBet - AILastBet;
+                        cout << "Returning $" << userLastBet - AILastBet << " to player." << endl;
+                        // set last bets equal
+                        userLastBet = AILastBet;
+                    }
+                }
             } else { // if the AI chose to fold
                 AILastBet = -1;
             }
@@ -200,9 +227,12 @@ int GameManager::userBet(int currBet, int userLastBet) {
             if (bet == 0) {
                 cout << "The player checks." << endl;
                 return 0;
-            } else if ((bet >= 2) && (bet <= userStack)) {
+            } else if ((bet >= 2) && (bet < userStack)) {
                 cout << "The player bets $" << bet << "." << endl;
                 return bet;
+            } else if (bet == userStack) {
+                cout << "The player goes all in for $" << userStack << "!" << endl;
+                return userStack;
             } else {
                 cout << "Please enter a valid bet." << endl;
             }
@@ -256,9 +286,12 @@ int GameManager::userBet(int currBet, int userLastBet) {
                     } else if (bet == 1) {
                         cout << "The player calls the bet of $" << amountOwed << "." << endl;
                         return amountOwed;
-                    } else if ((2*currBet)-userLastBet && (bet <= userStack)) {
+                    } else if ((2*currBet)-userLastBet && (bet < userStack)) {
                         cout << "The player bets $" << bet << "." << endl;
                         return bet;
+                    } else if (bet == userStack) {
+                        cout << "The player goes all in for $" << userStack << "!" << endl;
+                        return userStack;
                     } else {
                         cout << "Please enter a valid bet." << endl;
                     }
